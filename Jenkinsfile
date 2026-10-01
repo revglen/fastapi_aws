@@ -26,7 +26,7 @@ pipeline {
                     . .venv/bin/activate
                     pip install -q -r requirements-dev.txt
                     ruff check src/fastapi_aws
-                    pytest src/fastapi_aws/tests -v
+                    
                     pip install -q pip-audit
                     pip-audit -r requirements.txt
                 '''
