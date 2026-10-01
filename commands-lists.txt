@@ -1,0 +1,76 @@
+minikube delete
+minikube start --driver=docker
+
+docker build -t fastapi-app:local .
+minikube image load fastapi-app:local
+
+kubectl apply -f deployment.yaml
+
+kubectl get pods
+minikube service fastapi-app --url
+
+------------------------
+
+-----------------------------------------------------------------------------------
+
+Here's a resource-by-resource checklist matching everything in main.tf, all commands scoped to eu-west-1:
+
+1. ECS cluster and service
+
+aws ecs list-clusters --region eu-west-1 --query 'clusterArns'
+
+Should not contain fastapi-cicd-cluster.
+
+2. Load balancer and target group
+
+aws elbv2 describe-load-balancers --region eu-west-1 --query 'LoadBalancers[].LoadBalancerName'
+aws elbv2 describe-target-groups --region eu-west-1 --query 'TargetGroups[].TargetGroupName'
+
+Neither should list fastapi-cicd-alb or fastapi-cicd-tg.
+
+3. ECR repository
+
+aws ecr describe-repositories --region eu-west-1 --query 'repositories[].repositoryName'
+
+Should not contain fastapi-cicd.
+
+4. VPC and its networking (subnets, NAT gateway, internet gateway)
+
+aws ec2 describe-vpcs --region eu-west-1 --filters "Name=tag:Name,Values=fastapi-cicd-vpc" --query 'Vpcs'
+
+Should return an empty list. If it's gone, its subnets, route tables, and internet gateway went with it automatically, no separate check needed for those.
+
+aws ec2 describe-nat-gateways --region eu-west-1 --filter "Name=tag:Name,Values=fastapi-cicd*" --query 'NatGateways[].State'
+
+Should be empty, or show deleted if AWS is still showing the record (NAT gateways linger in "deleted" state in the API for a while, that's normal, not a problem).
+
+5. Security groups
+
+aws ec2 describe-security-groups --region eu-west-1 --filters "Name=group-name,Values=fastapi-cicd-*" --query 'SecurityGroups[].GroupName'
+
+Should be empty.
+
+6. IAM roles
+
+aws iam list-roles --query 'Roles[?contains(RoleName, `fastapi-cicd`)].RoleName'
+
+Should be empty, no region flag needed, IAM is global.
+
+7. CloudWatch log group
+
+aws logs describe-log-groups --region eu-west-1 --log-group-name-prefix /ecs/fastapi-cicd --query 'logGroups[].logGroupName'
+
+Should be empty. Terraform does delete this one, but worth confirming since log groups are sometimes left behind by other tools out of caution.
+
+------=======================-----------------
+
+aws ecs list-clusters --region eu-west-1 --query 'clusterArns'
+aws elbv2 describe-load-balancers --region eu-west-1 --query 'LoadBalancers[].LoadBalancerName'
+aws elbv2 describe-target-groups --region eu-west-1 --query 'TargetGroups[].TargetGroupName'
+aws ecr describe-repositories --region eu-west-1 --query 'repositories[].repositoryName'
+aws ec2 describe-vpcs --region eu-west-1 --filters "Name=tag:Name,Values=fastapi-cicd-vpc" --query 'Vpcs'
+aws ec2 describe-nat-gateways --region eu-west-1 --filter "Name=tag:Name,Values=fastapi-cicd*" --query 'NatGateways[].State'
+aws ec2 describe-nat-gateways --region eu-west-1 --filter "Name=tag:Name,Values=fastapi-cicd*" --query 'NatGateways[].State'
+aws ec2 describe-security-groups --region eu-west-1 --filters "Name=group-name,Values=fastapi-cicd-*" --query 'SecurityGroups[].GroupName'
+aws iam list-roles --query 'Roles[?contains(RoleName, `fastapi-cicd`)].RoleName'
+aws logs describe-log-groups --region eu-west-1 --log-group-name-prefix /ecs/fastapi-cicd --query 'logGroups[].logGroupName'
