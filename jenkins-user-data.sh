@@ -37,45 +37,7 @@ echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.
 apt update
 apt install -y trivy
 
-# ---- Plugins needed for the auto-created Pipeline job ----
-jenkins-plugin-cli --plugins workflow-aggregator git github
- 
-# ---- Auto-create the Pipeline job on every Jenkins startup ----
-# EDIT the repoUrl line below before launching the instance.
-mkdir -p /var/lib/jenkins/init.groovy.d
-cat > /var/lib/jenkins/init.groovy.d/create-pipeline-job.groovy << 'EOF'
-import jenkins.model.*
-import org.jenkinsci.plugins.workflow.job.WorkflowJob
-import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition
-import hudson.plugins.git.*
-import com.cloudbees.jenkins.GitHubPushTrigger
-import org.jenkinsci.plugins.github.GithubProjectProperty
- 
-def jenkins = Jenkins.get()
-def jobName = "fastapi-cicd-deploy"
- 
-if (jenkins.getItem(jobName) == null) {
-    def repoUrl = "https://github.com/revglen/fastapi_aws.git"
- 
-    def job = jenkins.createProject(WorkflowJob.class, jobName)
- 
-    def scm = new GitSCM(repoUrl)
-    scm.branches = [new BranchSpec("*/main")]
- 
-    def flowDef = new CpsScmFlowDefinition(scm, "Jenkinsfile")
-    flowDef.lightweight = true
-    job.definition = flowDef
- 
-    job.addProperty(new GithubProjectProperty(repoUrl))
-    job.addTrigger(new GitHubPushTrigger())
-    job.save()
- 
-    println "Created job: ${jobName}"
-} else {
-    println "Job ${jobName} already exists, skipping"
-}
-EOF
-chown -R jenkins:jenkins /var/lib/jenkins/init.groovy.d
+sudo chmod 666 /var/run/docker.sock
 
 systemctl restart jenkins
 systemctl status jenkins

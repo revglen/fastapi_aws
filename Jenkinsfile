@@ -48,6 +48,17 @@ pipeline {
         //     }
         // }
 
+        stage('Bootstrap Terraform state backend') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    sh '''
+                        chmod +x create-tfstate-bucket.sh
+                        ./create-tfstate-bucket.sh $TFSTATE_BUCKET
+                    '''
+                }
+            }
+        }
+
         stage('Terraform Infra') {
             steps {
                 dir('terraform') {
