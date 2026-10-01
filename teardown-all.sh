@@ -4,15 +4,6 @@ set -euo pipefail
 REGION="eu-west-1"
 KEY_NAME="jenkins-key"
 
-# echo "== Step 1: Terraform destroy (ECS, ALB, ECR, VPC, IAM) =="
-# if [ -d "terraform" ]; then
-#     cd terraform
-#     terraform destroy -auto-approve
-#     cd ..
-# else
-#     echo "  No terraform/ directory found here, skipping. Run this from your repo root."
-# fi
-
 echo "== Step 2: Terminate the Jenkins EC2 instance =="
 INSTANCE_ID=$(aws ec2 describe-instances --region "$REGION" \
     --filters "Name=tag:Name,Values=jenkins-cicd" "Name=instance-state-name,Values=running,stopped" \
