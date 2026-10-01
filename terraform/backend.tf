@@ -2,7 +2,7 @@ terraform {
   required_version = ">= 1.6.0"
 
   backend "s3" {
-    bucket         = "REPLACE_WITH_YOUR_TF_STATE_BUCKET"
+    bucket         = "https://github.com/revglen/fastapi_aws.git"
     key            = "fastapi-cicd/terraform.tfstate"
     region         = "eu-west-1"
     dynamodb_table = "terraform-locks"

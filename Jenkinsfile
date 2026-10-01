@@ -1,31 +1,32 @@
 pipeline {
-    agent ant
-    
+    agent any
+
     environment {
-      AWS_REGION    = 'eu-west-1'
-      PROJECT_NAME  = 'fast-cicd'
-      ECS_CLUSTER   = "${PROJECT_NAME}-ckuster"
-      ECS_SERVICE   = "${PROJECT_NAME}-service"
-      TASK_FAMILY   = "${PROJECT_NAME}"
+        AWS_REGION   = 'eu-west-1'
+        PROJECT_NAME = 'fastapi-cicd'
+        ECS_CLUSTER  = "${PROJECT_NAME}-cluster"
+        ECS_SERVICE  = "${PROJECT_NAME}-service"
+        TASK_FAMILY  = "${PROJECT_NAME}"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                Checkout scm
+                checkout scm
                 script {
-                    emv.IMAGE_TAG = sh(script: 'git rev-parse --short HEAD', returnStdout; true ).trim()
+                    env.IMAGE_TAG = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
                 }
             }
         }
 
-        stage('Lint & Test'){
+        stage('Lint & Test') {
             steps {
                 sh '''
                     python3 -m venv .venv
-                    . ./bin/activate
+                    . .venv/bin/activate
                     pip install -q -r app/requirements-dev.txt
                     ruff check app
+                    pytest app/tests -v
                     pip install -q pip-audit
                     pip-audit -r app/requirements.txt
                 '''
@@ -41,7 +42,7 @@ pipeline {
         stage('Scan Image') {
             steps {
                 sh """
-                    trivy image --severity CRITICAL,HIGH --exit-code 1 --ugnore-unfixed \
+                    trivy image --severity CRITICAL,HIGH --exit-code 1 --ignore-unfixed \
                     ${PROJECT_NAME}:${IMAGE_TAG}
                 """
             }
@@ -50,17 +51,14 @@ pipeline {
         stage('Terraform Infra') {
             steps {
                 dir('terraform') {
-                    withCredentials([usernamePassword(
-                            credential: 'aws-creds', \
-                            usernameVariable: 'AWS_ACCESS_KEY_ID', \ 
-                            passwordVarirable: 'AWS_SECRET_ACCESS_KEY')]{
+                    withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                         sh '''
                             terraform init -input=false
                             terraform apply -input=false -auto-approve
                         '''
 
                         script {
-                            env.ECR_REPO_URL = sh(script: 'terraform output -raw ecr-repository_url', returnStdout: true).trim()
+                            env.ECR_REPO_URL = sh(script: 'terraform output -raw ecr_repository_url', returnStdout: true).trim()
                             env.ALB_DNS = sh(script: 'terraform output -raw alb_dns_name', returnStdout: true).trim()
                         }
                     }
@@ -68,27 +66,24 @@ pipeline {
             }
         }
 
-        stage('Push to ECR'){
+        stage('Push to ECR') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                sh '''
-                    aws ecr get-login-password --region ${REGION} \
-                    | docker login --username AWS --password-stdin ${ECR_REPO_URL}
-                    docker tag ${PROJECT_NAME}:${IMAGE_TAG} ${ECR_REPO_URL}:${IMAGE_TAG}
-                    docker push ${ECR_REPO_URL}:${IMAGE_TAG}
-                '''
+                    sh '''
+                        aws ecr get-login-password --region ${AWS_REGION} \
+                        | docker login --username AWS --password-stdin ${ECR_REPO_URL}
+                        docker tag ${PROJECT_NAME}:${IMAGE_TAG} ${ECR_REPO_URL}:${IMAGE_TAG}
+                        docker push ${ECR_REPO_URL}:${IMAGE_TAG}
+                    '''
                 }
             }
         }
 
         stage('Deploy to ECS') {
             steps {
-                withCredentials([usernamePassword(
-                            credential: 'aws-creds', \
-                            usernameVariable: 'AWS_ACCESS_KEY_ID', \ 
-                            passwordVarirable: 'AWS_SECRET_ACCESS_KEY')]){
+                withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
-                        set -e 
+                        set -e
                         CURRENT_TASK_DEF=$(aws ecs describe-task-definition \
                             --task-definition $TASK_FAMILY --region $AWS_REGION --query 'taskDefinition')
 
@@ -100,7 +95,7 @@ pipeline {
 
                         NEW_ARN=$(aws ecs register-task-definition --region $AWS_REGION \
                             --cli-input-json "$NEW_TASK_DEF" \
-                            --query 'taskDefinition.taskDefinitionArn' --output text
+                            --query 'taskDefinition.taskDefinitionArn' --output text)
 
                         aws ecs update-service --region $AWS_REGION \
                             --cluster $ECS_CLUSTER --service $ECS_SERVICE \
@@ -113,29 +108,29 @@ pipeline {
             }
         }
 
-        stage('Smoke Testo'){
+        stage('Smoke test') {
             steps {
                 sh """
-                    curl -sf --retry 5 --retry-delay 10 --retry-connredused \
+                    curl -sf --retry 5 --retry-delay 10 --retry-connrefused \
                     http://${ALB_DNS}/health
                 """
             }
         }
 
-        stage('Cleanup local Docker Cache'){
+        stage('Cleanup local Docker Cache') {
             steps {
                 sh 'docker image prune -af --filter "until=24h" || true'
             }
         }
+    }
 
-        post {
-            success {
-                echo "Deployed ${IMAGE_TAG}. App is live at http://${ALB_DNS}"
-            }
-
-            failure {
-                    echo "Deploy failed. Previous task definition revision is still running, nothing was torn down."
-            }
+    post {
+        success {
+            echo "Deployed ${IMAGE_TAG}. App is live at http://${ALB_DNS}"
         }
-    }     
+
+        failure {
+            echo "Deploy failed. Previous task definition revision is still running, nothing was torn down."
+        }
+    }
 }
