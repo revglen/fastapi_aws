@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-app = FastAPI(title="Simple FastAPI Service")
+app = FastAPI(title="Simple FastAPI Service to test AWS and GitHub")
 
 @app.get("/")
 def read_root():
