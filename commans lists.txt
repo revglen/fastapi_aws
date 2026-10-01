@@ -1,0 +1,10 @@
+minikube delete
+minikube start --driver=docker
+
+docker build -t fastapi-app:local .
+minikube image load fastapi-app:local
+
+kubectl apply -f deployment.yaml
+
+kubectl get pods
+minikube service fastapi-app --url
