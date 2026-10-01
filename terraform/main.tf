@@ -127,7 +127,7 @@ resource "aws_lb_target_group" "app" {
 }
 
 resource "aws_lb_listener" "app" {
-  load_balancer_arn = aws_lb.app.load_balancer_arn
+  load_balancer_arn = aws_lb.app.arn
   port              = 80
   protocol          = "HTTP"
 
