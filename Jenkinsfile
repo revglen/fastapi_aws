@@ -53,7 +53,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
                         chmod +x create-tfstate-bucket.sh
-                        ./create-tfstate-bucket.sh $TFSTATE_BUCKET
+                        ./create-tfstate-bucket.sh fastapi-cicd-tfstate-revglen
                     '''
                 }
             }
