@@ -4,7 +4,7 @@ set -euo pipefail
 REGION="eu-west-1"
 KEY_NAME="jenkins-key"
 
-echo "== Step 2: Terminate the Jenkins EC2 instance =="
+echo "== Step 1: Terminate the Jenkins EC2 instance =="
 INSTANCE_ID=$(aws ec2 describe-instances --region "$REGION" \
     --filters "Name=tag:Name,Values=jenkins-cicd" "Name=instance-state-name,Values=running,stopped" \
     --query 'Reservations[0].Instances[0].InstanceId' \
@@ -21,7 +21,7 @@ else
     echo "  No jenkins-cicd instance found, skipping."
 fi
 
-echo "== Step 3: Remove the security group rules this project added =="
+echo "== Step 2: Remove the security group rules this project added =="
 VPC_ID=$(aws ec2 describe-vpcs --filters Name=isDefault,Values=true \
     --region "$REGION" \
     --query 'Vpcs[0].VpcId' \
