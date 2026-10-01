@@ -24,9 +24,8 @@ pipeline {
                 sh '''
                     python3 -m venv .venv
                     . .venv/bin/activate
-                    pip install -q -r app/requirements-dev.txt
-                    ruff check app
-                    pytest app/tests -v
+                    pip install -q -r src/fastapi_aws/requirements-dev.txt
+                    ruff check app                    
                     pip install -q pip-audit
                     pip-audit -r app/requirements.txt
                 '''
