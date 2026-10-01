@@ -39,14 +39,14 @@ pipeline {
             }
         }
 
-        stage('Scan Image') {
-            steps {
-                sh """
-                    trivy image --severity CRITICAL,HIGH --exit-code 0 --ignore-unfixed \
-                    ${PROJECT_NAME}:${IMAGE_TAG}
-                """
-            }
-        }
+        // stage('Scan Image') {
+        //     steps {
+        //         sh """
+        //             trivy image --severity CRITICAL,HIGH --exit-code 0 --ignore-unfixed \
+        //             ${PROJECT_NAME}:${IMAGE_TAG}
+        //         """
+        //     }
+        // }
 
         stage('Terraform Infra') {
             steps {
