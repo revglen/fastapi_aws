@@ -8,7 +8,7 @@ def read_root():
 
 @app.get("/health")
 def health():
-    return {"status": "okay"}
+    return {"status": "ok"}
 
 @app.get("/items/{item_id}")
 def read_item(item_id: int, q: str | None = None):
